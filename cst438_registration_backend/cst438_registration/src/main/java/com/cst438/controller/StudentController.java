@@ -84,30 +84,36 @@ public class StudentController {
 	/*
 	 * Update a student
 	 */
-	@PutMapping("/student/update/{student_id}")
-	public void updateStudent(@PathVariable("id") int id, @RequestBody StudentDTO studentDTO) {
-		Student student = studentRepository.findByStudent_id(id);
-		if (student == null) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found.");
-		}
-		
+	/*
+	 * Update a student
+	 */
+	@PutMapping("/student/{student_email}")
+	public void updateStudent(@RequestBody StudentDTO studentDTO) {
 		List<Student> students = (List<Student>) studentRepository.findAll();
 		Student stud = null;
 		
-		StudentDTO[] dto = new StudentDTO[students.size()];
-		
-		for(int i = 0; i < students.size(); i++) {
-			stud = students.get(i);
-			if(stud.getStudent_id() == id) {
-				stud.setStudent_id(id);
-				stud.setName(studentDTO.name());
-				stud.setEmail(studentDTO.email());
-				studentRepository.save(stud);
-				break;
+		if(students.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found");
+		}else {
+			StudentDTO[] dto = new StudentDTO[students.size()];
+			
+			for(int i = 0;i < students.size(); i++) {
+				stud = students.get(i);
+				if(stud.getEmail().equals(studentDTO.email())) {
+					Student myStudent = new Student();
+					myStudent.setStudent_id(stud.getStudent_id());
+					myStudent.setName(studentDTO.name());
+					myStudent.setEmail(stud.getEmail());
+					myStudent.setStatusCode(stud.getStatusCode());
+					myStudent.setStatus(stud.getStatus());
+					studentRepository.delete(stud);
+					studentRepository.save(myStudent);
+				}
 			}
 		}
+		
+		
 	}
-
 
 
 
