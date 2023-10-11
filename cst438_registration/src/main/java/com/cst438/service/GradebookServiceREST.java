@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import com.cst438.domain.FinalGradeDTO;
+import com.cst438.domain.Student;
+import com.cst438.domain.StudentRepository;
+import com.cst438.domain.Course;
+import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
 import com.cst438.domain.EnrollmentDTO;
 import com.cst438.domain.EnrollmentRepository;
@@ -25,13 +29,30 @@ public class GradebookServiceREST implements GradebookService {
 
 	@Value("${gradebook.url}")
 	private static String gradebook_url;
-
+	
+	@Autowired
+	StudentRepository studentRepository;
+	
+	@Autowired
+	CourseRepository courseRepository;
+	
 	@Override
 	public void enrollStudent(String student_email, String student_name, int course_id) {
 		System.out.println("Start Message "+ student_email +" " + course_id); 
 	
 		// TODO use RestTemplate to send message to gradebook service
-		
+		Student student = studentRepository.findByEmail(student_email);
+		Course course = courseRepository.findById(course_id).orElse(null);
+
+		Enrollment e = new Enrollment();
+		e.setStudent(student);
+		e.setCourse(course);
+
+		EnrollmentDTO enrollmentDTO = createEnrollmentDTO(e);
+
+		restTemplate.postForObject(gradebook_url, enrollmentDTO, EnrollmentDTO.class);
+		System.out.println("End Message "+ student_email +" " + course_id);
+
 	}
 	
 	@Autowired
@@ -45,5 +66,15 @@ public class GradebookServiceREST implements GradebookService {
 		System.out.println("Grades received "+grades.length);
 		
 		//TODO update grades in enrollment records with grades received from gradebook service
+	}
+	
+	private EnrollmentDTO createEnrollmentDTO(Enrollment e) {
+		EnrollmentDTO dto = new EnrollmentDTO(
+			e.getEnrollment_id(),
+			e.getStudent().getEmail(),
+			e.getStudent().getName(),
+			e.getCourse().getCourse_id()
+		);
+		return dto;
 	}
 }

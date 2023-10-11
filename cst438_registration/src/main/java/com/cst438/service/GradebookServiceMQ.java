@@ -6,10 +6,15 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cst438.domain.FinalGradeDTO;
+import com.cst438.domain.Student;
+import com.cst438.domain.StudentRepository;
+import com.cst438.domain.Course;
+import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
 import com.cst438.domain.EnrollmentDTO;
 import com.cst438.domain.EnrollmentRepository;
@@ -25,14 +30,36 @@ public class GradebookServiceMQ implements GradebookService {
 	@Autowired
 	EnrollmentRepository enrollmentRepository;
 	
+	@Autowired
+	StudentRepository studentRepository;
+	
+	@Autowired
+	CourseRepository courseRepository;
+	
 	Queue gradebookQueue = new Queue("gradebook-queue", true);
-
+	
+	@Bean
+	Queue createQueue() {
+		return new Queue("registration-queue");
+	}
+	
 	// send message to grade book service about new student enrollment in course
 	@Override
 	public void enrollStudent(String student_email, String student_name, int course_id) {
 		System.out.println("Start Message "+ student_email +" " + course_id); 
 		// create EnrollmentDTO, convert to JSON string and send to gradebookQueue
 		// TODO
+		Student student = studentRepository.findByEmail(student_email);
+		Course course = courseRepository.findById(course_id).orElse(null);
+		Enrollment e = new Enrollment();
+		e.setStudent(student);
+		e.setCourse(course);
+
+		EnrollmentDTO enrollmentDTO = createEnrollmentDTO(e);
+		
+		String jsonEnrollmentDTO = asJsonString(enrollmentDTO);
+
+		rabbitTemplate.convertAndSend("registration-queue", jsonEnrollmentDTO);
 	}
 	
 	@RabbitListener(queues = "registration-queue")
@@ -47,7 +74,25 @@ public class GradebookServiceMQ implements GradebookService {
 		// deserialize the string message to FinalGradeDTO[] 
 		
 		// TODO
+		FinalGradeDTO[] finalGradeDTOs = fromJsonString(message, FinalGradeDTO[].class);
+		for (FinalGradeDTO finalGradeDTO : finalGradeDTOs) {
+			Enrollment e = enrollmentRepository.findByEmailAndCourseId(finalGradeDTO.studentEmail(), finalGradeDTO.courseId());
+			e.setCourseGrade(finalGradeDTO.grade());
+			enrollmentRepository.save(e);
+		}
 
+		
+
+	}
+	
+	private EnrollmentDTO createEnrollmentDTO(Enrollment e) {
+		EnrollmentDTO dto = new EnrollmentDTO(
+			e.getEnrollment_id(),
+			e.getStudent().getEmail(),
+			e.getStudent().getName(),
+			e.getCourse().getCourse_id()
+		);
+		return dto;
 	}
 	
 	private static String asJsonString(final Object obj) {
@@ -65,4 +110,5 @@ public class GradebookServiceMQ implements GradebookService {
 			throw new RuntimeException(e);
 		}
 	}
+	
 }
