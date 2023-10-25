@@ -1,5 +1,6 @@
 package com.cst438.controller;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,9 +42,16 @@ public class ScheduleController {
 	 * get current schedule for student.
 	 */
 	@GetMapping("/schedule")
-	public ScheduleDTO[] getSchedule( @RequestParam("year") int year, @RequestParam("semester") String semester ) {
+	public ScheduleDTO[] getSchedule( Principal principal, @RequestParam("year") int year, @RequestParam("semester") String semester ) {
 		System.out.println("/schedule called.");
-		String student_email = "test@csumb.edu";   // student's email 
+		Student[] s = studentRepository.findByNameStartsWith(principal.getName().substring(0, 1));
+		String student_email = "" ;// student's email 
+		
+		for(int i = 0 ; i < s.length; i++) {
+			if(s[i].getName().equals(principal.getName())) {
+				student_email = s[i].getEmail();
+			}
+		}
 		
 		Student student = studentRepository.findByEmail(student_email);
 		if (student != null) {
